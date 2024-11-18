@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+
+/* Optional: Global CSS for better visibility */
+.pointer-events-none {
+    z-index: 10;
+  }
+  

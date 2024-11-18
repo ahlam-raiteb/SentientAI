@@ -1,0 +1,7 @@
+Flask
+flask-cors
+Werkzeug
+azure-ai-vision-imageanalysis==1.0.0b3
+azure-core
+Pillow
+python-dotenv
