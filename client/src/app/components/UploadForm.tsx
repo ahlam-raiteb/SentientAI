@@ -1,16 +1,17 @@
 "use client";
 import { useState } from 'react';
+import Image from 'next/image';
 
-interface ObjectData {
-  label: string;
-  confidence: number;
-  bbox: [number, number, number, number];
-}
+// interface ObjectData {
+//   label: string;
+//   confidence: number;
+//   bbox: [number, number, number, number];
+// }
 
 const UploadForm = () => {
   const [image, setImage] = useState<File | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
-  const [objects, setObjects] = useState<ObjectData[] | null>(null);
+  // const [objects, setObjects] = useState<ObjectData[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [analysisType, setAnalysisType] = useState<string>('detect-objects'); // Default to 'detect-objects'
 
@@ -18,7 +19,7 @@ const UploadForm = () => {
     if (e.target.files && e.target.files[0]) {
       setImage(e.target.files[0]);
       setResultImage(null); // Reset previous results
-      setObjects(null);
+      // setObjects(null);
     }
   };
 
@@ -47,7 +48,7 @@ const UploadForm = () => {
           document.body.appendChild(imageElement);
     
           setResultImage(data.image_url);
-          setObjects(data.objects || []);
+          // setObjects(data.objects || []);
         } else {
           alert('Image processing failed');
         }
@@ -104,7 +105,7 @@ const UploadForm = () => {
       {resultImage && (
         <div className="mt-6">
           <h3 className="font-bold">Analyzed Image:</h3>
-          <img src={resultImage} alt="Analyzed" className="max-w-full border rounded-lg" />
+          <Image src={resultImage} alt="Analyzed" className="max-w-full border rounded-lg" />
         </div>
 )
       }

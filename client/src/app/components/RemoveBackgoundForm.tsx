@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Image from 'next/image';
 
 const RemoveBackgroundForm = () => {
   const [imageUrl, setImageUrl] = useState<string>('');
@@ -34,7 +35,12 @@ const RemoveBackgroundForm = () => {
       {result && (
         <div className="mt-4">
           <h3 className="font-bold">Result:</h3>
-          <img src={`http://127.0.0.1:5000/${result}`} alt="Result" className="mt-2" />
+          <Image 
+            width={190}
+            height={190}
+            src={`http://127.0.0.1:5000/${result}`} 
+            alt="Result" 
+            className="mt-2"  />
         </div>
       )}
     </div>

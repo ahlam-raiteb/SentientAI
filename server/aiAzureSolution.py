@@ -123,8 +123,17 @@ def detect_objects(image_path):
         result = cv_client.analyze(
             image_data=image_data,
             visual_features=[
+                VisualFeatures.CAPTION,
+                VisualFeatures.TAGS,
                 VisualFeatures.OBJECTS],
         )
+        if result.caption is not None:
+            print("\nCaption:")
+            print(" Caption: '{}' (confidence: {:.2f}%)".format(result.caption.text, result.caption.confidence * 100))
+        if result.tags is not None:
+            print("\nTags:")
+            for tag in result.tags.list:
+                print(" Tag: '{}' (confidence: {:.2f}%)".format(tag.name, tag.confidence * 100))
         if result.objects is not None:
             print("\nObjects in image:")
 
@@ -145,15 +154,15 @@ def detect_objects(image_path):
                 draw.rectangle(bounding_box, outline=color, width=3)
                 plt.annotate(detected_object.tags[0].name,(r.x, r.y), backgroundcolor=color)
 
-            filename = f"object.jpg"
-            output_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
-            image.save(output_path)
 
             # Save annotated image
             plt.imshow(image)
             plt.tight_layout(pad=0)
             outputfile = 'objects.jpg'
             fig.savefig(outputfile)
+            filename = f"object.jpg"
+            output_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
+            image.save(output_path)
             print('  Results saved in', outputfile)
 
             return outputfile
