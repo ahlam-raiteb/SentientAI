@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 import os
 import uuid
 from azure.core.exceptions import HttpResponseError
-import requests
 from matplotlib import pyplot as plt
 
 # Initialize Flask app
@@ -27,8 +26,6 @@ load_dotenv()
 AI_ENDPOINT = os.getenv('AI_SERVICE_ENDPOINT')
 AI_KEY = os.getenv('AI_SERVICE_KEY')
 
-
-
 # Initialize Azure AI Vision client
 cv_client = ImageAnalysisClient(
     endpoint=AI_ENDPOINT,
@@ -41,81 +38,45 @@ def serve_image(filename):
     return send_from_directory(app.config['OUTPUT_FOLDER'], filename)
 
 
-
-
-# Define the function to analyze the image
-# def analyze_image_data(image_path):
-#     print('\nAnalyzing image...')
-
-#     try:
-#         # Get result with specified features to be retrieved
-#         result = cv_client.analyze(
-#             image_data=image_data,
-#             visual_features=[
-#                 VisualFeatures.CAPTION,
-#                 VisualFeatures.DENSE_CAPTIONS,
-#                 VisualFeatures.TAGS,
-#                 VisualFeatures.OBJECTS,
-#                 VisualFeatures.PEOPLE],
-#         )
-#         return result
-#     except HttpResponseError as e:
-#         print(f"Status code: {e.status_code}")
-#         print(f"Reason: {e.reason}")
-#         print(f"Message: {e.error.message}")
-
 def getColor(tag):
-    if tag == "person":
-        return "red"
-    if tag == "cat " or tag == "dog":
-        return "yellow"
-    if tag == "tree":
-        return "green"
-    if tag == "water":
-        return "blue"
-    return "black"
+    tag_colors = {
+        "person": "red",
+        "cat": "yellow",
+        "dog": "yellow",
+        "tree": "green",
+        "water": "blue"
+    }
+    return tag_colors.get(tag, "black")
 
-    # Function to detect people
+
 def detect_people(image_path):
-    with open(image_path, "rb") as f:
-                image_data = f.read()
     try:
+        with open(image_path, "rb") as f:
+            image_data = f.read()
         result = cv_client.analyze(
             image_data=image_data,
-            visual_features=[
-                VisualFeatures.PEOPLE],
+            visual_features=[VisualFeatures.PEOPLE],
         )
         if not result:
-            raise Exception("result not found")
+            raise Exception("No results from Azure API")
+
         image = Image.open(image_path)
-        fig = plt.figure(figsize=(image.width/100, image.height/100))
-        plt.axis('off')
         draw = ImageDraw.Draw(image)
 
         for person in result.people.list:
             r = person.bounding_box
-            color = getColor("tt")
             bounding_box = ((r.x, r.y), (r.x + r.width, r.y + r.height))
-            draw.rectangle(bounding_box, outline=color, width=3)
+            draw.rectangle(bounding_box, outline="red", width=3)
 
-        # Save the processed image
-        filename = f"people.jpg"
-        output_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
+        output_file = f"people.jpg"
+        output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_file)
         image.save(output_path)
-
-        # Prepare detected objects data
-        plt.imshow(image)
-        plt.tight_layout(pad=0)
-        outputfile = 'people.jpg'
-        fig.savefig(outputfile)
-        print('  Results saved in', outputfile)
-
-        return outputfile
+        return output_path
     except Exception as e:
         print(f"Error in detect_people: {e}")
-        return None, None
+        return None
 
-# Function to detect objects
+
 def detect_objects(image_path):
     with open(image_path, "rb") as f:
                 image_data = f.read()
@@ -145,44 +106,37 @@ def detect_objects(image_path):
             color = 'cyan'
 
             for detected_object in result.objects.list:
-                # Print object name
                 print(" {} (confidence: {:.2f}%)".format(detected_object.tags[0].name, detected_object.tags[0].confidence * 100))
                 
-                # Draw object bounding box
                 r = detected_object.bounding_box
                 bounding_box = ((r.x, r.y), (r.x + r.width, r.y + r.height)) 
                 draw.rectangle(bounding_box, outline=color, width=3)
                 plt.annotate(detected_object.tags[0].name,(r.x, r.y), backgroundcolor=color)
 
 
-            # Save annotated image
             plt.imshow(image)
             plt.tight_layout(pad=0)
-            outputfile = 'objects.jpg'
-            fig.savefig(outputfile)
-            filename = f"object.jpg"
-            output_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
-            image.save(output_path)
+            outputfile = 'object.jpg'
+            output_path = os.path.join(app.config['OUTPUT_FOLDER'], outputfile)
+            fig.savefig(output_path)
+           
             print('  Results saved in', outputfile)
 
             return outputfile
-
     except Exception as e:
-        print(f"Error in detect_people: {e}")
-        return None, None
+        print(f"Error in detect_objects: {e}")
+        return None
 
 
 @app.route('/analyse_image', methods=['POST'])
 def analyze_image():
-    # Check for the uploaded file and type
     if 'image' not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
     image = request.files['image']
     analysis_type = request.form.get('type', 'detect-objects')
 
-    # Validate analysis type
-    if analysis_type not in ['detect-people', 'detect-objects', 'remove-background']:
+    if analysis_type not in ['detect-people', 'detect-objects']:
         return jsonify({"error": "Invalid analysis type"}), 400
 
     filename = secure_filename(image.filename)
@@ -190,28 +144,20 @@ def analyze_image():
     image.save(image_path)
 
     if analysis_type == 'detect-people':
-        print(analysis_type)
         output_path = detect_people(image_path)
-    if analysis_type == 'detect-objects':
-        print(analysis_type)
+    elif analysis_type == 'detect-objects':
         output_path = detect_objects(image_path)
     else:
         return jsonify({"error": "Invalid analysis type"}), 400
 
     if output_path:
-        # Generate a URL for the processed image
         image_url = f"http://127.0.0.1:5000/{os.path.basename(output_path)}"
-        response = {
-            "image_url": image_url,
-        }
-        return jsonify(response), 200
+        return jsonify({"image_url": image_url}), 200
     else:
         return jsonify({"error": "Image processing failed"}), 500
 
 
 if __name__ == '__main__':
-    # Enable CORS
     from flask_cors import CORS
     CORS(app)
-
     app.run(debug=True)
