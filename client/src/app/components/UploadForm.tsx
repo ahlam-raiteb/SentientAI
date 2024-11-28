@@ -24,21 +24,23 @@ const UploadForm = () => {
   
     const formData = new FormData();
     formData.append('image', image);
-    formData.append('type', analysisType); 
+    formData.append('type', analysisType);
   
     setLoading(true);
   
     try {
       const response = await fetch('http://127.0.0.1:5000/analyse_image', {
         method: 'POST',
-        body: formData
+        body: formData,
       });
-    
+  
       if (response.status === 200) {
         const data = await response.json();
-    
+  
+        console.log("data << : >> ", data);
         if (data.image_url) {
-          setResultImage(data.image_url);
+          const uniqueUrl = `${data.image_url}?t=${new Date().getTime()}`;
+          setResultImage(uniqueUrl);
         } else {
           alert('Image processing failed');
         }
@@ -52,7 +54,7 @@ const UploadForm = () => {
       setLoading(false);
     }
   };
-
+  
   return (
     <div className="bg-gray-100 p-6 rounded-lg shadow-md">
       <h2 className="text-xl font-bold mb-4">Upload Image for Analysis</h2>

@@ -55,7 +55,11 @@ def detect_people(image_path):
             image_data = f.read()
         result = cv_client.analyze(
             image_data=image_data,
-            visual_features=[VisualFeatures.PEOPLE],
+            visual_features=[
+                VisualFeatures.PEOPLE,
+                VisualFeatures.CAPTION,
+                VisualFeatures.TAGS,
+                ],
         )
         if not result:
             raise Exception("No results from Azure API")
@@ -71,7 +75,7 @@ def detect_people(image_path):
         output_file = f"people.jpg"
         output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_file)
         image.save(output_path)
-        return output_path
+        return (output_path)
     except Exception as e:
         print(f"Error in detect_people: {e}")
         return None
