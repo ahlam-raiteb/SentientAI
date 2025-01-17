@@ -26,6 +26,10 @@ load_dotenv()
 AI_ENDPOINT = os.getenv('AI_SERVICE_ENDPOINT')
 AI_KEY = os.getenv('AI_SERVICE_KEY')
 
+# Debug: Print environment variables
+print(f"AI_ENDPOINT: {AI_ENDPOINT}")
+print(f"AI_KEY: {AI_KEY}")
+
 # Initialize Azure AI Vision client
 cv_client = ImageAnalysisClient(
     endpoint=AI_ENDPOINT,
@@ -37,7 +41,6 @@ cv_client = ImageAnalysisClient(
 def serve_image(filename):
     return send_from_directory(app.config['OUTPUT_FOLDER'], filename)
 
-
 def getColor(tag):
     tag_colors = {
         "person": "red",
@@ -47,7 +50,6 @@ def getColor(tag):
         "water": "blue"
     }
     return tag_colors.get(tag, "black")
-
 
 def detect_people(image_path):
     try:
@@ -66,7 +68,6 @@ def detect_people(image_path):
 
         image = Image.open(image_path)
         draw = ImageDraw.Draw(image)
-
         for person in result.people.list:
             r = person.bounding_box
             bounding_box = ((r.x, r.y), (r.x + r.width, r.y + r.height))
@@ -74,23 +75,31 @@ def detect_people(image_path):
 
         output_file = f"people.jpg"
         output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_file)
+        tags= result.tags
+        caption = result.caption 
+        people  =result.people
         image.save(output_path)
-        return (output_path)
+        return (output_path, tags , caption ,people)
     except Exception as e:
         print(f"Error in detect_people: {e}")
         return None
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 def detect_objects(image_path):
-    with open(image_path, "rb") as f:
-                image_data = f.read()
     try:
+        with open(image_path, "rb") as f:
+            image_data = f.read()
         result = cv_client.analyze(
             image_data=image_data,
             visual_features=[
-                VisualFeatures.CAPTION,
-                VisualFeatures.TAGS,
-                VisualFeatures.OBJECTS],
+                    VisualFeatures.CAPTION,
+                    VisualFeatures.DENSE_CAPTIONS,
+                    VisualFeatures.TAGS,
+                    VisualFeatures.OBJECTS,
+                    VisualFeatures.PEOPLE],
         )
         if result.caption is not None:
             print("\nCaption:")
@@ -99,6 +108,7 @@ def detect_objects(image_path):
             print("\nTags:")
             for tag in result.tags.list:
                 print(" Tag: '{}' (confidence: {:.2f}%)".format(tag.name, tag.confidence * 100))
+        # Get objects in the image
         if result.objects is not None:
             print("\nObjects in image:")
 
@@ -110,23 +120,22 @@ def detect_objects(image_path):
             color = 'cyan'
 
             for detected_object in result.objects.list:
+                # Print object name
                 print(" {} (confidence: {:.2f}%)".format(detected_object.tags[0].name, detected_object.tags[0].confidence * 100))
                 
+                # Draw object bounding box
                 r = detected_object.bounding_box
                 bounding_box = ((r.x, r.y), (r.x + r.width, r.y + r.height)) 
                 draw.rectangle(bounding_box, outline=color, width=3)
                 plt.annotate(detected_object.tags[0].name,(r.x, r.y), backgroundcolor=color)
 
-
-            plt.imshow(image)
-            plt.tight_layout(pad=0)
-            outputfile = 'object.jpg'
-            output_path = os.path.join(app.config['OUTPUT_FOLDER'], outputfile)
-            fig.savefig(output_path)
-           
-            print('  Results saved in', outputfile)
-
-            return outputfile
+            output_file = f"object.jpg"
+            output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_file)
+            tags= result.tags
+            caption = result.caption
+            people  =result.people
+            image.save(output_path)
+            return (output_path, tags , caption ,people)
     except Exception as e:
         print(f"Error in detect_objects: {e}")
         return None
@@ -144,19 +153,35 @@ def analyze_image():
         return jsonify({"error": "Invalid analysis type"}), 400
 
     filename = secure_filename(image.filename)
-    image_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{uuid.uuid4().hex}_{filename}")
+    image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     image.save(image_path)
 
     if analysis_type == 'detect-people':
-        output_path = detect_people(image_path)
+        output_path, tags, caption, people = detect_people(image_path)
     elif analysis_type == 'detect-objects':
-        output_path = detect_objects(image_path)
+        output_path, tags, caption, people = detect_objects(image_path)
     else:
         return jsonify({"error": "Invalid analysis type"}), 400
 
+    def serialize(obj):
+        if isinstance(obj, dict):
+            return {k: serialize(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [serialize(item) for item in obj]
+        elif hasattr(obj, "__dict__"):
+            return {k: serialize(v) for k, v in vars(obj).items()}
+        else:
+            return obj
+
     if output_path:
         image_url = f"http://127.0.0.1:5000/{os.path.basename(output_path)}"
-        return jsonify({"image_url": image_url}), 200
+        serialized_data = serialize({
+                "image_url": image_url,
+                "tags": tags,
+                "caption": caption,
+                "people": people
+            })
+        return jsonify(serialized_data), 200
     else:
         return jsonify({"error": "Image processing failed"}), 500
 
